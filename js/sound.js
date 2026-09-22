@@ -9,7 +9,7 @@ class ChiptuneMusic {
     this.masterGain = null;
     this.currentTrack = null;
     this.nextNoteTime = 0;
-    this.scheduleAheadTime = 0.1;
+    this.scheduleAheadTime = 0.2; // Lookahead: debe ser > 0.125s (duración por beat)
     this.tempo = 120;
     this.currentBeat = 0;
     this.beatCount = 0;
@@ -210,8 +210,12 @@ class ChiptuneMusic {
     if (this.isPlaying) return;
     
     this.currentBeat = 0;
-    this.nextNoteTime = this.ctx.currentTime + 0.1;
+    this.nextNoteTime = this.ctx.currentTime + 0.05; // Inicio dentro del lookahead
     this.isPlaying = true;
+    
+    // Pre-cargar notas para evitar silencio inicial
+    this.scheduler();
+    // Programar el siguiente ciclo
     this.scheduler();
   }
 
@@ -247,12 +251,17 @@ class SoundSystem {
   }
 
   // Inicializar audio (requiere interacción del usuario)
-  init() {
+  async init() {
     try {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Resumir contexto si está suspendido (iOS/Android lo suspenden por defecto)
+      if (this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
+      console.log('✅ AudioContext listo, estado:', this.ctx.state);
       return true;
     } catch (e) {
-      console.warn('Web Audio API no disponible');
+      console.warn('Web Audio API no disponible:', e);
       return false;
     }
   }
