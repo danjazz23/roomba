@@ -2,43 +2,72 @@
 // SISTEMA DE AUDIO — Web Audio API + Música Procedural Retro
 // ============================================
 
+// ============================================
+// DIAGNÓSTICO DE AUDIO — Habilitado para debugging
+// ============================================
+const AUDIO_DEBUG = true;
+function debugLog(...args) {
+  if (AUDIO_DEBUG) {
+    console.log('[AUDIO]', ...args);
+  }
+}
+function debugError(...args) {
+  console.error('[AUDIO]', ...args);
+}
+
+// ============================================
+// CHIPTUNE MUSIC — Motor de música procedural
+// ============================================
 class ChiptuneMusic {
   constructor() {
     this.ctx = null;
     this.isPlaying = false;
     this.masterGain = null;
-    this.schedulerTimer = null;
     this.nextNoteTime = 0;
-    this.scheduleAheadTime = 0.15;
+    this.scheduleAheadTime = 0.1;
     this.tempo = 120;
     this.currentBeat = 0;
     this.beatCount = 0;
-    this.octave = 4;
-    this.isActionMode = false;
-    this.initialized = false;
-    this.pendingNotes = [];
+    this.actionMode = false;
+    this.schedulerTimer = null;
+    this.initCalled = false;
+    this.startCalled = false;
   }
 
+  // INICIALIZACIÓN — Se llama cuando ya tenemos AudioContext
   init(ctx) {
-    if (this.initialized) return;
+    debugLog('>>> init() called, ctx:', ctx ? ctx.state : 'null');
     
+    if (this.initCalled) {
+      debugLog('>>> init() already called, skipping');
+      return;
+    }
+    this.initCalled = true;
+
+    if (!ctx) {
+      debugError('init() called without ctx');
+      return;
+    }
+
     this.ctx = ctx;
-    this.masterGain = ctx.createGain();
-    this.masterGain.gain.value = 0.3;
-    this.masterGain.connect(ctx.destination);
     
-    // Eco para ambiente
-    this.delay = ctx.createDelay();
+    // Crear master gain
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0.3;
+    this.masterGain.connect(this.ctx.destination);
+    debugLog('Master gain created, connected to destination');
+
+    // Crear eco
+    this.delay = this.ctx.createDelay();
     this.delay.delayTime.value = 0.25;
-    const delayGain = ctx.createGain();
+    const delayGain = this.ctx.createGain();
     delayGain.gain.value = 0.15;
     this.delay.connect(delayGain);
     delayGain.connect(this.masterGain);
-    
-    this.initialized = true;
-    console.log('🎵 ChiptuneMusic inicializado');
+    debugLog('Delay effect created');
   }
 
+  // Escalas pentatónicas
   getScale(type = 'minor') {
     return {
       minor: [0, 3, 5, 7, 10],
@@ -55,14 +84,14 @@ class ChiptuneMusic {
     return 440 * Math.pow(2, (semitones - 9) / 12);
   }
 
+  // Melodía procedural
   generateMelody(beat) {
     const patterns = [
       [0, 2, 4, 2, 0, 1, 3, 0, 4, 2, 0, 1, 0, 3, 2, 0],
       [0, 1, 2, 3, 4, 3, 2, 1, 0, 2, 4, 2, 0, 1, 3, 0],
       [0, 0, 2, 2, 4, 4, 2, 0, 1, 1, 3, 3, 1, 0, 0, 0]
     ];
-    const patternIndex = Math.floor(beat / 16) % patterns.length;
-    return patterns[patternIndex][beat % 16];
+    return patterns[Math.floor(beat / 16) % patterns.length][beat % 16];
   }
 
   generateBass(beat) {
@@ -70,14 +99,15 @@ class ChiptuneMusic {
       [0, 0, 4, 4, 0, 0, 2, 2, 3, 3, 7, 7, 3, 3, 0, 0],
       [0, 4, 0, 4, 2, 0, 2, 0, 3, 7, 3, 7, 0, 4, 0, 4]
     ];
-    const patternIndex = Math.floor(beat / 16) % bassPatterns.length;
-    return bassPatterns[patternIndex][beat % 16];
+    return bassPatterns[Math.floor(beat / 16) % bassPatterns.length][beat % 16];
   }
 
+  // Notas de melodía (onda cuadrada)
   playMelodyNote(noteIndex, time) {
     if (noteIndex < 0) return;
     
     const freq = this.scaleToFreq(noteIndex, 'minor');
+    
     const osc = this.ctx.createOscillator();
     osc.type = 'square';
     osc.frequency.setValueAtTime(freq, time);
@@ -94,8 +124,11 @@ class ChiptuneMusic {
     
     osc.start(time);
     osc.stop(time + 0.15);
+    
+    debugLog(`  🎵 Melody note ${noteIndex} @ freq ${freq.toFixed(1)}Hz at time ${time.toFixed(4)}`);
   }
 
+  // Notas de bajo (onda triangular)
   playBassNote(noteIndex, time) {
     const freq = this.scaleToFreq(noteIndex - 12, 'minor');
     
@@ -116,6 +149,7 @@ class ChiptuneMusic {
     osc.stop(time + 0.28);
   }
 
+  // Acordes de fondo (onda sinusoidal)
   playChord(time) {
     const chordNotes = [0, 4, 7];
     chordNotes.forEach(noteIdx => {
@@ -137,99 +171,167 @@ class ChiptuneMusic {
     });
   }
 
-  scheduleNote(beat, time) {
-    const melodyIndex = this.generateMelody(beat);
-    if (Math.random() > 0.25) {
-      this.playMelodyNote(melodyIndex, time);
-    }
-    
-    if (beat % 4 === 0) {
-      const bassIndex = this.generateBass(beat);
-      this.playBassNote(bassIndex, time);
-    }
-    
-    if (beat % 8 === 0) {
-      this.playChord(time);
-    }
-  }
-
-  // Scheduler robusto: usa setTimeout recursivo con check de contexto
+  // Scheduler — programa notas en el futuro
   scheduler() {
-    if (!this.isPlaying || !this.initialized) return;
+    if (!this.isPlaying) {
+      debugLog('Scheduler stopped: isPlaying=false');
+      return;
+    }
     
-    // Verificar que el contexto sigue activo
-    if (!this.ctx || this.ctx.state === 'closed') {
+    if (!this.ctx || !this.masterGain) {
+      debugError('Scheduler running but no ctx/masterGain');
+      this.isPlaying = false;
+      return;
+    }
+
+    // Verificar estado del contexto
+    const ctxState = this.ctx.state;
+    if (ctxState === 'closed') {
+      debugError('Scheduler: context is CLOSED');
       this.isPlaying = false;
       return;
     }
     
-    while (this.nextNoteTime < this.ctx.currentTime + this.scheduleAheadTime) {
-      this.scheduleNote(this.currentBeat, this.nextNoteTime);
-      const secondsPerBeat = 60.0 / this.tempo;
-      this.nextNoteTime += 0.25 * secondsPerBeat;
-      this.currentBeat++;
-      this.beatCount++;
+    // Si el contexto está suspendido, intentamos reanudar
+    if (ctxState === 'suspended') {
+      debugLog('Scheduler: context suspended, attempting resume...');
+      this.ctx.resume().then(() => {
+        debugLog('Scheduler: context resumed to', this.ctx.state);
+        this.scheduler();
+      }).catch(err => {
+        debugError('Scheduler: resume failed:', err);
+      });
+      return;
     }
     
-    // Programar siguiente ejecución (25ms = 40Hz)
+    // Programar todas las notas dentro del lookahead
+    let notesScheduled = 0;
+    while (this.nextNoteTime < this.ctx.currentTime + this.scheduleAheadTime) {
+      this.scheduleNote(this.currentBeat, this.nextNoteTime);
+      
+      const secondsPerBeat = 60.0 / this.tempo;
+      this.nextNoteTime += 0.25 * secondsPerBeat; // 1/4 de nota
+      this.currentBeat++;
+      this.beatCount++;
+      notesScheduled++;
+    }
+    
+    debugLog(`Scheduler tick: scheduled ${notesScheduled} notes, beat=${this.currentBeat}, beatCount=${this.beatCount}`);
+    debugLog(`  currentTime=${this.ctx.currentTime.toFixed(3)}, nextNoteTime=${this.nextNoteTime.toFixed(3)}, lookahead=${this.scheduleAheadTime}`);
+    
+    // Programar siguiente tick (40Hz = 25ms)
     if (this.isPlaying) {
       this.schedulerTimer = setTimeout(() => this.scheduler(), 25);
     }
   }
 
+  // Programar una nota individual
+  scheduleNote(beat, time) {
+    // Melodía en cada beat
+    const melodyIndex = this.generateMelody(beat);
+    if (Math.random() > 0.25) {
+      this.playMelodyNote(melodyIndex, time);
+    }
+    
+    // Bajo cada 4 beats
+    if (beat % 4 === 0) {
+      const bassIndex = this.generateBass(beat);
+      this.playBassNote(bassIndex, time);
+    }
+    
+    // Acordes cada 8 beats
+    if (beat % 8 === 0) {
+      this.playChord(time);
+    }
+  }
+
+  // Cambiar modo acción (turbo)
   setActionMode(enabled) {
-    if (!this.initialized) return;
-    if (this.isActionMode === enabled) return;
-    this.isActionMode = enabled;
+    if (!this.ctx) return;
+    if (this.actionMode === enabled) return;
+    this.actionMode = enabled;
     
     const newTempo = enabled ? 150 : 120;
     const newVolume = enabled ? 0.4 : 0.3;
     
-    if (this.ctx && this.masterGain) {
+    if (this.masterGain) {
       this.masterGain.gain.linearRampToValueAtTime(newVolume, this.ctx.currentTime + 0.5);
     }
     this.tempo = newTempo;
+    debugLog(`Action mode: ${enabled ? 'ON (150 BPM)' : 'OFF (120 BPM)'}`);
   }
 
-  // START ROBUSTO: espera a que el contexto esté listo antes de programar
+  // START ROBUSTO — el método más importante
   async start() {
-    if (this.isPlaying) return;
+    debugLog('>>> START() called');
+    debugLog('   initCalled:', this.initCalled);
+    debugLog('   isPlaying:', this.isPlaying);
     
-    if (!this.initialized || !this.ctx) {
-      console.warn('⚠️ ChiptuneMusic.start() pero no inicializado');
-      return;
+    if (this.isPlaying) {
+      debugLog('>>> START() already playing, skipping');
+      return true;
     }
     
-    // Asegurar que el contexto está running (crítico en móviles)
+    if (!this.initCalled) {
+      debugError('>>> START() called but init() was not!');
+      return false;
+    }
+    
+    if (!this.ctx) {
+      debugError('>>> START() called but this.ctx is null!');
+      return false;
+    }
+    
+    // Verificar y asegurar contexto activo
+    debugLog('   ctx.state before resume:', this.ctx.state);
+    
     if (this.ctx.state === 'suspended') {
+      debugLog('>>> Context suspended, awaiting resume...');
       try {
-        console.log('🎵 Resumiendo AudioContext...');
         await this.ctx.resume();
-        console.log('🎵 AudioContext resume:', this.ctx.state);
+        debugLog('>>> Context resumed to:', this.ctx.state);
       } catch (e) {
-        console.error('❌ No se pudo resumir AudioContext:', e);
-        return;
+        debugError('>>> Context resume FAILED:', e);
+        return false;
       }
     }
     
     if (this.ctx.state !== 'running') {
-      console.error('❌ AudioContext no está running:', this.ctx.state);
-      return;
+      debugError('>>> Context still not running after resume! state:', this.ctx.state);
+      return false;
     }
     
+    debugLog('>>> Context is RUNNING — starting scheduler');
+    
+    // Iniciar scheduler
     this.currentBeat = 0;
     this.beatCount = 0;
-    this.nextNoteTime = this.ctx.currentTime + 0.01; // Muy cerca para empezar ya
+    this.nextNoteTime = this.ctx.currentTime + 0.01; // Inmediato
     this.isPlaying = true;
+    this.startCalled = true;
     
-    console.log('🎵 Iniciando scheduler, nextNoteTime:', this.nextNoteTime.toFixed(4), 'currentTime:', this.ctx.currentTime.toFixed(4));
+    debugLog(`   nextNoteTime: ${this.nextNoteTime.toFixed(4)}`);
+    debugLog(`   currentTime: ${this.ctx.currentTime.toFixed(4)}`);
+    debugLog(`   scheduleAheadTime: ${this.scheduleAheadTime}`);
     
-    // Programar inmediatamente Y luego con setTimeout
+    // Ejecutar scheduler inmediatamente
     this.scheduler();
+    
+    // Verificar que el scheduler se ejecutó (después de 100ms)
+    setTimeout(() => {
+      if (this.isPlaying) {
+        debugLog(`   [100ms post-start] isPlaying=${this.isPlaying}, beat=${this.currentBeat}, beatCount=${this.beatCount}`);
+      }
+    }, 100);
+    
+    return true;
   }
 
+  // STOP
   stop() {
+    debugLog('>>> STOP() called');
     this.isPlaying = false;
+    
     if (this.schedulerTimer) {
       clearTimeout(this.schedulerTimer);
       this.schedulerTimer = null;
@@ -244,56 +346,70 @@ class ChiptuneMusic {
       }, 300);
     }
   }
-
-  setVolume(volume) {
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + 0.1);
-    }
-  }
 }
 
+// ============================================
+// SOUND SYSTEM — Capa superior de audio
+// ============================================
 class SoundSystem {
   constructor() {
     this.ctx = null;
     this.enabled = true;
-    this.sounds = {};
-    this.musicVolume = 0.5;
-    this.sfxVolume = 0.7;
     this.music = new ChiptuneMusic();
+    this.initialized = false;
   }
 
+  // INICIALIZACIÓN ASÍNCRONA — Crea y resume AudioContext
   async init() {
+    debugLog('>>> SoundSystem.init() called');
+    
+    // Si ya inicializado, verificar estado
     if (this.ctx) {
-      // Si ya existe, verificar estado
       if (this.ctx.state === 'suspended') {
+        debugLog('>>> Context suspended, attempting resume...');
         try {
           await this.ctx.resume();
+          debugLog('>>> Context resumed to:', this.ctx.state);
         } catch (e) {
-          console.warn('No se pudo resume AudioContext:', e);
+          debugError('>>> Resume failed:', e);
         }
       }
-      return this.ctx.state === 'running';
+      const ready = this.ctx.state === 'running';
+      debugLog(`>>> Already initialized, ctx.state=${this.ctx.state}, ready=${ready}`);
+      return ready;
     }
     
+    // Crear nuevo contexto
+    debugLog('>>> Creating new AudioContext...');
     try {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      debugLog('>>> AudioContext created, state:', this.ctx.state);
       
       // Esperar a que el contexto esté activo
       if (this.ctx.state === 'suspended') {
-        console.log('🎵 AudioContext suspendido, esperando resume...');
+        debugLog('>>> Context initially suspended, awaiting resume...');
         await this.ctx.resume();
+        debugLog('>>> Context resumed to:', this.ctx.state);
       }
       
-      console.log('✅ AudioContext listo:', this.ctx.state);
-      return this.ctx.state === 'running';
+      this.initialized = this.ctx.state === 'running';
+      debugLog(`>>> AudioSystem init complete: ${this.initialized ? 'READY' : 'NOT READY'}, state=${this.ctx.state}`);
+      return this.initialized;
     } catch (e) {
-      console.error('❌ Web Audio API no disponible:', e);
+      debugError('>>> Web Audio API failed:', e);
       return false;
     }
   }
 
+  // Efectos de sonido procedurales
   playTone(freq, duration, type = 'sine', volume = 0.3) {
     if (!this.ctx || !this.enabled) return;
+    
+    // Verificar estado del contexto
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+    if (this.ctx.state !== 'running') return;
     
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -301,7 +417,7 @@ class SoundSystem {
     osc.type = type;
     osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
 
-    gain.gain.setValueAtTime(volume * this.sfxVolume, this.ctx.currentTime);
+    gain.gain.setValueAtTime(volume * 0.7, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
 
     osc.connect(gain);
@@ -311,67 +427,18 @@ class SoundSystem {
     osc.stop(this.ctx.currentTime + duration);
   }
 
-  playCollect() {
-    this.playTone(880, 0.1, 'sine', 0.2);
-    setTimeout(() => this.playTone(1100, 0.1, 'sine', 0.2), 50);
-  }
-
-  playDamage() {
-    this.playTone(150, 0.2, 'sawtooth', 0.3);
-    this.playTone(100, 0.3, 'square', 0.15);
-  }
-
-  playAttack() {
-    this.playTone(400, 0.05, 'square', 0.2);
-    this.playTone(600, 0.08, 'sawtooth', 0.15);
-  }
-
-  playLowBattery() {
-    this.playTone(440, 0.15, 'sine', 0.25);
-    setTimeout(() => this.playTone(440, 0.15, 'sine', 0.25), 200);
-    setTimeout(() => this.playTone(440, 0.3, 'sine', 0.25), 400);
-  }
-
-  playUpgrade() {
-    [523, 659, 784, 1047].forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, 0.15, 'sine', 0.2), i * 80);
-    });
-  }
-
-  motorTone(speed) {
-    const freq = 60 + speed * 40;
-    this.playTone(freq, 0.05, 'sawtooth', 0.05 + speed * 0.02);
-  }
-
-  playCollision() {
-    this.playTone(80, 0.15, 'square', 0.25);
-  }
-
-  playDeath() {
-    [440, 370, 311, 261, 220].forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, 0.4, 'sine', 0.3), i * 200);
-    });
-  }
-
-  playCheckpoint() {
-    [523, 659, 784, 1047, 784, 1047].forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, 0.2, 'sine', 0.2), i * 100);
-    });
-  }
-
-  playShield() {
-    this.playTone(300, 0.1, 'sine', 0.15);
-    this.playTone(500, 0.15, 'sine', 0.1);
-  }
-
-  playJump() {
-    this.playTone(300, 0.05, 'sine', 0.2);
-    setTimeout(() => this.playTone(500, 0.08, 'sine', 0.2), 50);
-    setTimeout(() => this.playTone(700, 0.1, 'sine', 0.15), 100);
-  }
-
+  playCollect() { this.playTone(880, 0.1, 'sine', 0.2); setTimeout(() => this.playTone(1100, 0.1, 'sine', 0.2), 50); }
+  playDamage() { this.playTone(150, 0.2, 'sawtooth', 0.3); }
+  playAttack() { this.playTone(400, 0.05, 'square', 0.2); }
+  playLowBattery() { this.playTone(440, 0.15, 'sine', 0.25); setTimeout(() => this.playTone(440, 0.3, 'sine', 0.25), 300); }
+  playUpgrade() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.playTone(f, 0.15, 'sine', 0.2), i * 80)); }
+  playCollision() { this.playTone(80, 0.15, 'square', 0.25); }
+  playDeath() { [440, 370, 311, 261, 220].forEach((f, i) => setTimeout(() => this.playTone(f, 0.4, 'sine', 0.3), i * 200)); }
+  playJump() { this.playTone(300, 0.05, 'sine', 0.2); setTimeout(() => this.playTone(500, 0.08, 'sine', 0.2), 50); }
+  playShield() { this.playTone(300, 0.1, 'sine', 0.15); }
   mute() { this.enabled = false; }
   unmute() { this.enabled = true; }
 }
 
+// Instancia global
 const Sound = new SoundSystem();
