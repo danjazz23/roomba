@@ -5,7 +5,7 @@
 // ============================================
 // DIAGNÓSTICO DE AUDIO — Habilitado para debugging
 // ============================================
-const AUDIO_DEBUG = true;
+const AUDIO_DEBUG = false;
 function debugLog(...args) {
   if (AUDIO_DEBUG) {
     console.log('[AUDIO]', ...args);

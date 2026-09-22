@@ -156,20 +156,17 @@ class Game {
   async start() {
     if (this.state !== 'menu') return;
 
-    // Esperar a que el AudioContext esté 100% listo (crítico en móviles)
+    // Esperar a que el AudioContext esté listo (crítico en móviles)
     const audioReady = await Sound.init();
-    console.log('🎵 AudioReady:', audioReady, 'ctx.state:', Sound.ctx ? Sound.ctx.state : 'null');
     
     if (!audioReady) {
-      console.error('❌ Audio no disponible, música desactivada');
       return;
     }
     
     Sound.music.init(Sound.ctx);
     
-    // Iniciar música procedural retro (await para asegurar contexto activo)
+    // Iniciar música procedural retro
     await Sound.music.start();
-    console.log('🎵 Música chiptune iniciada');
 
     document.getElementById('start-screen').classList.add('hidden');
     document.getElementById('touch-controls').classList.remove('hidden');
