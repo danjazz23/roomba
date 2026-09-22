@@ -1,0 +1,70 @@
+/* ============================================
+   ROOMBA KISOU — HUD específico
+   ============================================ */
+
+#hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+#energy-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 6px 10px;
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(56, 178, 172, 0.2);
+}
+
+#energy-bar-bg {
+  width: 120px;
+  height: 12px;
+  background: var(--c-dark);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--c-deep);
+}
+
+#energy-bar {
+  height: 100%;
+  width: 3%;
+  border-radius: 6px;
+  transition: width 0.2s ease, background-color 0.3s ease;
+}
+
+#energy-percent {
+  font-weight: bold;
+  min-width: 35px;
+  text-align: right;
+}
+
+/* Alerta de batería baja */
+.energy-warn #energy-bar {
+  animation: energyPulse 0.5s ease-in-out infinite;
+}
+
+@keyframes energyPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+#zone-label {
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#score-label {
+  font-size: 13px;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

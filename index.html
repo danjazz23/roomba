@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Roomba KISOU 🤖</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/hud.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <!-- Canvas principal del juego -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD superior -->
+  <div id="hud">
+    <div id="hud-top">
+      <div id="energy-container">
+        <span id="energy-label">⚡</span>
+        <div id="energy-bar-bg">
+          <div id="energy-bar"></div>
+        </div>
+        <span id="energy-percent">3%</span>
+      </div>
+      <div id="zone-label">📍 VERTEDERO</div>
+      <div id="score-label">♻️ <span id="score">0</span></div>
+    </div>
+  </div>
+
+  <!-- Pantallas de overlay -->
+  <div id="start-screen" class="overlay-screen">
+    <div class="screen-content">
+      <h1>ROOMBA<br>KISOU</h1>
+      <p class="subtitle">🤖 Un robot con conciencia. 3% de batería. Sin vuelta atrás.</p>
+      <div class="narrative-box">
+        <p>"Los últimos pensamientos de una máquina no son datos... son miedo."</p>
+        <p>Despiertas en un vertedero infinito. Tu cuerpo fue diseñado para limpiar suelos. Ahora limpias tu propia existencia.</p>
+      </div>
+      <button id="btn-start" class="btn-primary">▶ INICIAR</button>
+      <p class="controls-hint">
+        📱 Joystick + Botones &nbsp;|&nbsp; ⌨️ WASD/Flechas + Espacio (saltar)
+      </p>
+    </div>
+  </div>
+
+  <div id="death-screen" class="overlay-screen hidden">
+    <div class="screen-content">
+      <h1>APAGADO</h1>
+      <p class="subtitle">La energía se ha agotado...</p>
+      <div class="death-stats">
+        <p>Chatarra recogida: <span id="death-score">0</span></p>
+        <p>Fragmentos de memoria: <span id="death-memory">0</span></p>
+        <p>Mejoras instaladas: <span id="death-upgrades">0</span></p>
+      </div>
+      <button id="btn-restart" class="btn-primary">🔄 REINICIAR</button>
+    </div>
+  </div>
+
+  <div id="pause-screen" class="overlay-screen hidden">
+    <div class="screen-content">
+      <h1>PAUSA</h1>
+      <button id="btn-resume" class="btn-primary">▶ CONTINUAR</button>
+      <button id="btn-restart-pause" class="btn-secondary">🔄 REINICIAR</button>
+    </div>
+  </div>
+
+  <!-- Controles táctiles -->
+  <div id="touch-controls" class="hidden">
+    <!-- Joystick virtual izquierdo -->
+    <div id="joystick-zone">
+      <div id="joystick-base"></div>
+      <div id="joystick-stick"></div>
+    </div>
+    <!-- Botones derechos -->
+    <div id="action-buttons">
+      <button id="btn-shield" class="action-btn btn-shield">🛡</button>
+      <button id="btn-attack" class="action-btn btn-attack">⚔</button>
+      <button id="btn-turbo" class="action-btn btn-turbo">🔥</button>
+    </div>
+    <!-- Botón de salto -->
+    <button id="btn-jump" class="action-btn btn-jump">⬆</button>
+  </div>
+
+  <script src="js/palette.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/battery.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/upgrades.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/kizou.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+/* ============================================
+   ROOMBA KISOU — Responsive / Móvil
+   ============================================ */
+
+/* Móvil vertical */
+@media (max-width: 480px) {
+  #energy-bar-bg {
+    width: 80px;
+  }
+
+  .btn-primary, .btn-secondary {
+    padding: 12px 28px;
+    font-size: 16px;
+  }
+
+  .narrative-box {
+    padding: 12px;
+  }
+
+  .action-btn {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+
+  #touch-controls {
+    height: 160px;
+  }
+
+  #joystick-zone {
+    bottom: 10px;
+    left: 10px;
+    width: 100px;
+    height: 100px;
+  }
+
+  #joystick-base {
+    width: 100px;
+    height: 100px;
+  }
+
+  #action-buttons {
+    bottom: 10px;
+    right: 10px;
+  }
+
+  .death-stats p {
+    font-size: 13px;
+  }
+}
+
+/* Móvil horizontal */
+@media (max-width: 768px) and (orientation: landscape) {
+  #hud {
+    padding: 5px 10px;
+  }
+
+  #energy-bar-bg {
+    width: 60px;
+  }
+
+  #touch-controls {
+    height: 120px;
+    bottom: 5px;
+  }
+
+  #joystick-zone {
+    bottom: 5px;
+    left: 5px;
+    width: 80px;
+    height: 80px;
+  }
+
+  #joystick-base {
+    width: 80px;
+    height: 80px;
+  }
+
+  #action-buttons {
+    bottom: 5px;
+    right: 5px;
+    flex-direction: row;
+  }
+
+  .action-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+  }
+
+  .screen-content {
+    padding: 15px;
+  }
+
+  .screen-content h1 {
+    font-size: 28px;
+  }
+}
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+  #energy-bar-bg {
+    width: 150px;
+  }
+
+  .screen-content {
+    max-width: 600px;
+  }
+}
+
+/* Desktop */
+@media (min-width: 1025px) {
+  #touch-controls {
+    display: none !important;
+  }
+
+  #energy-bar-bg {
+    width: 200px;
+  }
+}
+
+/* Seguridad: sin scroll en iOS */
+@supports (-webkit-touch-callout: none) {
+  body {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Modo oscuro forzado (por defecto) */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--c-dark);
+  }
+}
+
+/* Reducir movimiento */
+@media (prefers-reduced-motion: reduce) {
+  #energy-bar {
+    transition: none;
+  }
+}
