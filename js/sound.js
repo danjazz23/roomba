@@ -1,6 +1,240 @@
 // ============================================
-// SISTEMA DE AUDIO — Web Audio API
+// SISTEMA DE AUDIO — Web Audio API + Música Procedural Retro
 // ============================================
+
+class ChiptuneMusic {
+  constructor() {
+    this.ctx = null;
+    this.isPlaying = false;
+    this.masterGain = null;
+    this.currentTrack = null;
+    this.nextNoteTime = 0;
+    this.scheduleAheadTime = 0.1;
+    this.tempo = 120;
+    this.currentBeat = 0;
+    this.beatCount = 0;
+    this.octave = 4;
+    this.isActionMode = false;
+  }
+
+  init(ctx) {
+    this.ctx = ctx;
+    this.masterGain = ctx.createGain();
+    this.masterGain.gain.value = 0.3;
+    this.masterGain.connect(ctx.destination);
+    
+    // Crear efectos de eco para ambiente retro
+    this.delay = ctx.createDelay();
+    this.delay.delayTime.value = 0.3;
+    this.delayGain = ctx.createGain();
+    this.delayGain.gain.value = 0.2;
+    this.delay.connect(this.delayGain);
+    this.delayGain.connect(this.masterGain);
+  }
+
+  // Escalas pentatónicas para sonido retro auténtico
+  getScale(type = 'minor') {
+    const scales = {
+      minor: [0, 3, 5, 7, 10],      // Do menor pentatónica
+      major: [0, 2, 4, 5, 7],       // Do mayor pentatónica  
+      blues: [0, 3, 5, 6, 7, 10],   // Do blues
+      dorian: [0, 2, 3, 5, 7, 9, 10] // Dórico
+    };
+    return scales[type] || scales.minor;
+  }
+
+  // Convertir índice de escala a frecuencia
+  scaleToFreq(index, scaleType = 'minor') {
+    const scale = this.getScale(scaleType);
+    const noteInScale = index % scale.length;
+    const octaveShift = Math.floor(index / scale.length);
+    const semitones = scale[noteInScale] + (octaveShift * 12);
+    return 440 * Math.pow(2, (semitones - 9) / 12);
+  }
+
+  // Generar melodía procedural
+  generateMelody(beat) {
+    const patterns = [
+      // Patrón melódico 1 - Ambiente misterioso
+      [0, 2, 4, 2, 0, 1, 3, 0, 4, 2, 0, 1, 0, 3, 2, 0],
+      // Patrón melódico 2 - Ascendente
+      [0, 1, 2, 3, 4, 3, 2, 1, 0, 2, 4, 2, 0, 1, 3, 0],
+      // Patrón melódico 3 - Repetitivo retro
+      [0, 0, 2, 2, 4, 4, 2, 0, 1, 1, 3, 3, 1, 0, 0, 0]
+    ];
+    
+    const patternIndex = Math.floor(beat / 16) % patterns.length;
+    const beatInPattern = beat % 16;
+    return patterns[patternIndex][beatInPattern];
+  }
+
+  // Generar línea de bajo procedural
+  generateBass(beat) {
+    const bassPatterns = [
+      [0, 0, 4, 4, 0, 0, 2, 2, 3, 3, 7, 7, 3, 3, 0, 0],
+      [0, 4, 0, 4, 2, 0, 2, 0, 3, 7, 3, 7, 0, 4, 0, 4]
+    ];
+    
+    const patternIndex = Math.floor(beat / 16) % bassPatterns.length;
+    const beatInPattern = beat % 16;
+    return bassPatterns[patternIndex][beatInPattern];
+  }
+
+  // Tocar nota de melodía con estilo chiptune
+  playMelodyNote(noteIndex, time) {
+    if (noteIndex === undefined || noteIndex < 0) return;
+    
+    const freq = this.scaleToFreq(noteIndex, 'minor');
+    
+    // Oscilador principal (onda cuadrada para sonido retro)
+    const osc = this.ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq * (2 + (this.currentBeat % 2 === 0 ? 0 : 0)), time);
+    
+    // Envelope ADSR rápido para sonido pixelado
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(0.15, time + 0.01);
+    gain.gain.setValueAtTime(0.15, time + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    gain.connect(this.delay); // Añadir eco
+    
+    osc.start(time);
+    osc.stop(time + 0.15);
+  }
+
+  // Tocar nota de bajo
+  playBassNote(noteIndex, time) {
+    const freq = this.scaleToFreq(noteIndex - 12, 'minor'); // Una octava abajo
+    
+    const osc = this.ctx.createOscillator();
+    osc.type = 'triangle'; // Bajo más suave
+    osc.frequency.setValueAtTime(freq, time);
+    
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(0.2, time + 0.02);
+    gain.gain.setValueAtTime(0.2, time + 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(time);
+    osc.stop(time + 0.3);
+  }
+
+  // Generar acorde de fondo
+  playChord(time, intensity = 0.1) {
+    const chordNotes = [0, 4, 7]; // Tónica, tercera, quinta
+    
+    chordNotes.forEach((noteIdx, i) => {
+      const freq = this.scaleToFreq(noteIdx, 'minor') * 0.5; // Una octava abajo
+      
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, time);
+      
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(intensity * 0.1, time + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+      
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      
+      osc.start(time);
+      osc.stop(time + 1.0);
+    });
+  }
+
+  // Scheduler principal para timing preciso
+  scheduler() {
+    while (this.nextNoteTime < this.ctx.currentTime + this.scheduleAheadTime) {
+      this.scheduleNote(this.currentBeat, this.nextNoteTime);
+      this.nextNote();
+    }
+    
+    if (this.isPlaying) {
+      setTimeout(() => this.scheduler(), 25);
+    }
+  }
+
+  // Programar nota en tiempo específico
+  scheduleNote(beat, time) {
+    // Melodía en cada beat
+    const melodyIndex = this.generateMelody(beat);
+    if (Math.random() > 0.3) { // 70% probabilidad de sonar
+      this.playMelodyNote(melodyIndex, time);
+    }
+    
+    // Bajo cada 4 beats
+    if (beat % 4 === 0) {
+      const bassIndex = this.generateBass(beat);
+      this.playBassNote(bassIndex, time);
+    }
+    
+    // Acorde cada 8 beats
+    if (beat % 8 === 0) {
+      this.playChord(time, 0.5);
+    }
+  }
+
+  // Avanzar al siguiente beat
+  nextNote() {
+    const secondsPerBeat = 60.0 / this.tempo;
+    this.nextNoteTime += 0.25 * secondsPerBeat; // Cuartos de nota
+    this.currentBeat++;
+    this.beatCount++;
+  }
+
+  // Cambiar a modo acción (más rápido, intenso)
+  setActionMode(enabled) {
+    if (this.isActionMode === enabled) return;
+    this.isActionMode = enabled;
+    
+    if (enabled) {
+      this.tempo = 150; // Más rápido
+      this.masterGain.gain.linearRampToValueAtTime(0.4, this.ctx.currentTime + 0.5);
+    } else {
+      this.tempo = 120;
+      this.masterGain.gain.linearRampToValueAtTime(0.3, this.ctx.currentTime + 0.5);
+    }
+  }
+
+  // Iniciar música
+  start() {
+    if (this.isPlaying) return;
+    
+    this.currentBeat = 0;
+    this.nextNoteTime = this.ctx.currentTime + 0.1;
+    this.isPlaying = true;
+    this.scheduler();
+  }
+
+  // Detener música
+  stop() {
+    this.isPlaying = false;
+    if (this.masterGain) {
+      this.masterGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
+      setTimeout(() => {
+        if (this.masterGain) {
+          this.masterGain.gain.value = 0.3;
+        }
+      }, 500);
+    }
+  }
+
+  // Cambiar volumen
+  setVolume(volume) {
+    if (this.masterGain) {
+      this.masterGain.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + 0.1);
+    }
+  }
+}
 
 class SoundSystem {
   constructor() {
@@ -9,6 +243,7 @@ class SoundSystem {
     this.sounds = {};
     this.musicVolume = 0.5;
     this.sfxVolume = 0.7;
+    this.music = new ChiptuneMusic();
   }
 
   // Inicializar audio (requiere interacción del usuario)
@@ -112,7 +347,7 @@ class SoundSystem {
     setTimeout(() => this.playTone(700, 0.1, 'sine', 0.15), 100);
   }
 
-  // Silenciar todo
+  // Silenciar todo (SFX solo)
   mute() { this.enabled = false; }
   unmute() { this.enabled = true; }
 }

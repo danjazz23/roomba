@@ -125,11 +125,19 @@ class KISOU {
         speedMult = this.upgrades ? this.upgrades.getSpeedMultiplier() * 1.5 : 1.5;
         this.state = 'turbo';
         this.generateTurboParticles();
+        // Activar modo acción en la música (más rápido e intenso)
+        if (Sound.music && Sound.music.ctx) {
+          Sound.music.setActionMode(true);
+        }
       } else {
         speedMult = 1;
       }
     } else {
       this.state = moveX !== 0 || moveY !== 0 ? 'move' : 'idle';
+      // Desactivar modo acción
+      if (Sound.music && Sound.music.ctx) {
+        Sound.music.setActionMode(false);
+      }
     }
 
     const speed = this.maxSpeed * speedMult;

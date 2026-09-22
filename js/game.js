@@ -81,6 +81,17 @@ class Game {
       else if (this.state === 'paused') this.resume();
     });
 
+    // Toggle música con M
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'm' || e.key === 'M') {
+        if (Sound.music.isPlaying) {
+          Sound.music.stop();
+        } else if (Sound.ctx) {
+          Sound.music.start();
+        }
+      }
+    });
+
     // Reinicio al morir (touch/click)
     this.canvas.addEventListener('click', () => {
       if (this.state === 'dead') this.restart();
@@ -145,6 +156,10 @@ class Game {
   start() {
     // Inicializar audio
     Sound.init();
+    Sound.music.init(Sound.ctx);
+
+    // Iniciar música procedural retro
+    Sound.music.start();
 
     document.getElementById('start-screen').classList.add('hidden');
     document.getElementById('touch-controls').classList.remove('hidden');
@@ -158,6 +173,7 @@ class Game {
   pause() {
     this.state = 'paused';
     document.getElementById('pause-screen').classList.remove('hidden');
+    Sound.music.stop();
   }
 
   resume() {
@@ -171,6 +187,7 @@ class Game {
     this.state = 'dead';
     Sound.playDeath();
     this.camera.applyShake(1);
+    Sound.music.stop();
 
     setTimeout(() => {
       document.getElementById('death-screen').classList.remove('hidden');
