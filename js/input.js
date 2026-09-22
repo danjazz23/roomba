@@ -86,8 +86,11 @@ class InputSystem {
       this.joystick.dy = 0;
     });
 
-    // Saltar
+    // Saltar — usar pointer events para mayor compatibilidad móvil
     const setupBtn = (btn, key, code) => {
+      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); this.buttons[key] = true; });
+      btn.addEventListener('pointerup', (e) => { e.preventDefault(); this.buttons[key] = false; });
+      btn.addEventListener('pointerleave', (e) => { this.buttons[key] = false; });
       btn.addEventListener('touchstart', (e) => { e.preventDefault(); this.buttons[key] = true; });
       btn.addEventListener('touchend', (e) => { e.preventDefault(); this.buttons[key] = false; });
       btn.addEventListener('touchcancel', (e) => { this.buttons[key] = false; });
@@ -97,9 +100,12 @@ class InputSystem {
     setupBtn(btnShield, 'shield', 'KeyQ');
     setupBtn(btnTurbo, 'turbo', 'ShiftLeft');
 
-    // Configurar botón de salto si existe en el DOM
+    // Botón de salto
     const btnJump = document.getElementById('btn-jump');
     if (btnJump) {
+      btnJump.addEventListener('pointerdown', (e) => { e.preventDefault(); this.buttons.jump = true; });
+      btnJump.addEventListener('pointerup', (e) => { e.preventDefault(); this.buttons.jump = false; });
+      btnJump.addEventListener('pointerleave', (e) => { this.buttons.jump = false; });
       btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); this.buttons.jump = true; });
       btnJump.addEventListener('touchend', (e) => { e.preventDefault(); this.buttons.jump = false; });
       btnJump.addEventListener('touchcancel', (e) => { this.buttons.jump = false; });

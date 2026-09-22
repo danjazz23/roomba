@@ -317,6 +317,11 @@ html, body {
   pointer-events: auto;
 }
 
+.btn-row-top {
+  display: flex;
+  gap: 8px;
+}
+
 .action-btn {
   width: 64px;
   height: 64px;
@@ -329,6 +334,7 @@ html, body {
   justify-content: center;
   transition: all 0.1s ease;
   -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
 }
 
 .action-btn:active {
@@ -356,4 +362,5 @@ html, body {
   position: absolute;
   bottom: 25px;
   right: 100px;
+  pointer-events: auto;
 }

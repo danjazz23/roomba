@@ -52,6 +52,53 @@ class KISOU {
     return 'idle';
   }
 
+  // Generar partículas de fuego cuando turbo está activo
+  generateTurboParticles() {
+    if (!this._turboParticles) this._turboParticles = [];
+    if (this.state !== 'turbo' || this._turboParticles.length >= 8) return;
+    
+    const px = this.x + this.w / 2;
+    const py = this.y + this.h - 5;
+    const dir = this.facing;
+    
+    for (let i = 0; i < 2; i++) {
+      this._turboParticles.push({
+        x: px + dir * Utils.random(-5, 5),
+        y: py + Utils.random(-3, 3),
+        vx: dir * Utils.random(-1, -3),
+        vy: Utils.random(-2, -5),
+        life: 0.6 + Math.random() * 0.4,
+        decay: 0.015 + Math.random() * 0.01,
+        size: 2 + Math.random() * 4,
+        color: Math.random() > 0.5 ? '#FFA500' : '#FF4500'
+      });
+    }
+  }
+
+  // Actualizar y dibujar partículas de turbo
+  updateAndDrawTurboParticles(ctx) {
+    if (!this._turboParticles || this._turboParticles.length === 0) return;
+    
+    this._turboParticles = this._turboParticles.filter(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.1; // gravedad leve
+      p.life -= p.decay;
+      p.size *= 0.95;
+      
+      if (p.life <= 0) return false;
+      
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      return true;
+    });
+    
+    ctx.globalAlpha = 1;
+  }
+
   // Actualizar jugador
   update(dt, world, camera) {
     if (this.hitFlash > 0) this.hitFlash -= dt * 5;
@@ -77,6 +124,7 @@ class KISOU {
       if (this.battery.spend(0.02)) {
         speedMult = this.upgrades ? this.upgrades.getSpeedMultiplier() * 1.5 : 1.5;
         this.state = 'turbo';
+        this.generateTurboParticles();
       } else {
         speedMult = 1;
       }
@@ -200,36 +248,24 @@ class KISOU {
       this.animFrame = (this.animFrame + 1) % 8;
     }
 
-    // Ataque — DEBUG: registrar cada condición
+    // Ataque
     if (this.input && this.input.isAttacking()) {
-      console.log(`🎯 attack check: input=${!!this.input}, isAttacking=true, cooldown=${this.attackCooldown}, upgrades=${!!this.upgrades}, battery=${this.battery?.energy}`);
       if (this.attackCooldown <= 0) {
         if (this.battery.spend(this.battery.attackCost)) {
-          console.log(`⚔️ ATACANDO! cost=${this.battery.attackCost}, battery now=${this.battery.energy}`);
           this.attackCooldown = 0.3;
           this.state = 'attack';
           this.stateTimer = 0.3;
           if (this.upgrades) {
             const weapon = this.upgrades.getWeapon();
             if (weapon > 0) {
-              console.log(`🗡️ Ataque rango: weapon=${weapon}`);
               this.enemies?.attackEnemy(this, weapon, this.world.segments);
             } else {
-              console.log(`👊 Ataque melee: weapon=0`);
               this.enemies?.attackEnemy(this, 1, this.world.segments);
             }
             Sound.playAttack();
-          } else {
-            console.warn(`⚠️ Ataque bloqueado: this.upgrades es ${this.upgrades}`);
           }
-        } else {
-          console.warn(`⚠️ Ataque fallido: batería insuficiente (${this.battery?.energy} < ${this.battery?.attackCost})`);
         }
-      } else {
-        console.log(`⏳ Ataque en cooldown: ${this.attackCooldown.toFixed(2)}s`);
       }
-    } else {
-      console.log(`❌ No ataca: input=${!!this.input}, isAttacking=${this.input?.isAttacking()}, cooldown=${this.attackCooldown}`);
     }
 
     // Salto (solo si está en el suelo)
@@ -279,6 +315,12 @@ class KISOU {
 
     ctx.save();
 
+    // Glow de turbo (efecto visual)
+    if (this.state === 'turbo') {
+      ctx.shadowColor = '#FFA500';
+      ctx.shadowBlur = 20 + Math.sin(Date.now() * 0.01) * 5;
+    }
+
     // Flash de daño (efecto visual)
     if (this.hitFlash > 0) {
       ctx.shadowColor = '#FFF';
@@ -299,6 +341,8 @@ class KISOU {
       this._drawFallback(ctx, sx, sy);
     }
 
+    ctx.restore();
+
     // Escudo visual (overlay)
     if (this.shieldActive) {
       ctx.strokeStyle = PALETTE.TEAL;
@@ -313,7 +357,8 @@ class KISOU {
       ctx.shadowBlur = 0;
     }
 
-    ctx.restore();
+    // Dibujar partículas de turbo (en espacio de cámara)
+    this.updateAndDrawTurboParticles(ctx);
   }
 
   // Fallback: dibujar KISOU con primitivas si no hay sprite
